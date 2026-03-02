@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日程计划安排</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        secondary: '#64748b',
+                        success: '#10b981',
+                        warning: '#fbbf24',
+                        danger: '#f87171',
+                        info: '#0ea5e9',
+                        light: '#f8fafc',
+                        dark: '#1e293b',
+                        pending: '#fbbf24',
+                        ongoing: '#6366f1',
+                        completed: '#10b981',
+                        rescheduled: '#a78bfa',
+                        cancelled: '#f87171'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        card: '0 2px 4px -1px rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03)',
+                        'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04)',
+                        'modal': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-in-out',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass-effect {
+                background: rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .calendar-grid {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 0;
+            }
+            .day-grid {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                grid-template-rows: repeat(24, minmax(48px, 1fr));
+                gap: 0;
+            }
+            .week-grid {
+                display: grid;
+                grid-template-columns: auto repeat(7, 1fr);
+                grid-template-rows: auto repeat(24, minmax(48px, 1fr));
+                gap: 0;
+            }
+            .schedule-card {
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            }
+            .schedule-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+            .progress-bar {
+                transition: width 0.5s ease-in-out;
+            }
+            .fade-in {
+                animation: fadeIn 0.3s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .slide-up {
+                animation: slideUp 0.3s ease-in-out;
+            }
+            @keyframes slideUp {
+                from { transform: translateY(20px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            .btn {
+                @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+            }
+            .btn-primary {
+                @apply bg-primary text-white hover:bg-primary/90 focus:ring-primary/50;
+            }
+            .btn-secondary {
+                @apply bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-400/50;
+            }
+            .btn-success {
+                @apply bg-success text-white hover:bg-success/90 focus:ring-success/50;
+            }
+            .btn-warning {
+                @apply bg-warning text-white hover:bg-warning/90 focus:ring-warning/50;
+            }
+            .btn-danger {
+                @apply bg-danger text-white hover:bg-danger/90 focus:ring-danger/50;
+            }
+            .btn-info {
+                @apply bg-info text-white hover:bg-info/90 focus:ring-info/50;
+            }
+            .input-field {
+                @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+            }
+            .card {
+                @apply bg-white rounded-xl shadow-sm overflow-hidden transition-all duration-200;
+            }
+            .card:hover {
+                @apply shadow-md;
+            }
+            .calendar-container {
+                @apply border border-gray-200 rounded-lg overflow-hidden;
+            }
+            .calendar-weekdays {
+                @apply border-b border-gray-200;
+            }
+            .month-header {
+                @apply bg-white;
+            }
+            /* 移动端优化样式 */
+            .mobile-safe-area {
+                padding-bottom: env(safe-area-inset-bottom, 20px);
+            }
+            .mobile-bottom-nav {
+                bottom: 0;
+                position: fixed;
+                width: 100%;
+                z-index: 50;
+                background-color: white;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            }
+            .mobile-day-card {
+                @apply p-3 mb-3 rounded-lg shadow-sm border-l-4 cursor-pointer transition-all duration-200;
+            }
+            .mobile-day-card:active {
+                @apply opacity-90 transform scale-[0.98];
+            }
+            .mobile-week-header {
+                @apply sticky top-0 z-10 bg-white;
+            }
+            .mobile-scroll-container {
+                @apply overflow-x-auto scrollbar-hide;
+            }
+            .mobile-week-grid {
+                min-width: 1200px;
+            }
+            .mobile-touch-target {
+                @apply min-h-10 min-w-10;
+            }
+            .mobile-schedule-item {
+                @apply p-2 mb-2 rounded-md text-sm cursor-pointer transition-all duration-200;
+            }
+            .mobile-schedule-item:active {
+                @apply opacity-90;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col touch-action-manipulation">
+    <!-- 顶部导航栏 - 移动端优化 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <h1 class="text-lg font-bold text-primary flex items-center">
+                    <i class="fa fa-calendar-check-o mr-2"></i>
+                    <span class="hidden sm:inline">日程计划</span>
+                </h1>
+                <div class="hidden md:flex space-x-1">
+                    <button id="today-btn" class="px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors">
+                        今天
+                    </button>
+                    <button id="prev-btn" class="px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors mobile-touch-target">
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    <button id="next-btn" class="px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors mobile-touch-target">
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <div id="current-date" class="text-sm font-medium hidden sm:block"></div>
+                
+                <div class="flex bg-gray-100 rounded-lg p-0.5 shadow-sm">
+                    <button id="day-view-btn" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white transition-all duration-200">
+                        日
+                    </button>
+                    <button id="week-view-btn" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-200 transition-all duration-200">
+                        周
+                    </button>
+                    <button id="month-view-btn" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-200 transition-all duration-200">
+                        月
+                    </button>
+                </div>
+                
+                <button id="settings-btn" class="p-2 rounded-full hover:bg-gray-100 transition-all duration-200 hover:shadow-sm mobile-touch-target">
+                    <i class="fa fa-cog"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-4">
+        <!-- 当日进度 - 移动端优化 -->
+        <section id="daily-progress" class="mb-4 bg-white rounded-xl shadow-sm p-3 fade-in">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-semibold">今日进度</h2>
+                <span id="today-date" class="text-xs text-gray-500"></span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="progress-bar" class="bg-success h-2 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between mt-1 text-xs text-gray-500">
+                <span id="completed-count">0 已完成</span>
+                <span id="total-count">共 0 项</span>
+            </div>
+            
+            <!-- 今日进行中 -->
+            <div class="mt-3">
+                <h3 class="text-xs font-medium text-gray-500 mb-2">进行中</h3>
+                <div id="ongoing-tasks" class="space-y-2">
+                    <!-- 进行中的任务将在这里动态生成 -->
+                    <div class="text-xs text-gray-400 italic">暂无进行中的任务</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 视图内容区 -->
+        <section id="view-content" class="card overflow-hidden">
+            <!-- 日视图 - 移动端优化 -->
+            <div id="day-view" class="view-content p-2">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-gray-800">今日计划</h2>
+                    <div class="text-xs text-gray-600" id="current-date-display"></div>
+                </div>
+                
+                <!-- 移动端日期导航 -->
+                <div class="flex items-center justify-between mb-4 md:hidden">
+                    <button id="mobile-prev-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors mobile-touch-target">
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    <button id="mobile-today-btn" class="px-3 py-1 bg-primary/10 text-primary text-xs rounded-md">
+                        今天
+                    </button>
+                    <button id="mobile-next-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors mobile-touch-target">
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <!-- 时间轴 - 移动端优化 -->
+                <div class="relative">
+                    <!-- 时间轴线 -->
+                    <div class="absolute left-10 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                    
+                    <!-- 时间轴项目 -->
+                    <div id="timeline-items" class="space-y-4">
+                        <!-- 时间轴项目将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 周视图 - 移动端优化 -->
+            <div id="week-view" class="view-content p-2 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-gray-800">本周计划</h2>
+                    <div class="text-xs text-gray-600" id="week-date-range"></div>
+                </div>
+                
+                <!-- 移动端周导航 -->
+                <div class="flex items-center justify-between mb-4 md:hidden">
+                    <button id="mobile-week-prev-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors mobile-touch-target">
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    <button id="mobile-week-today-btn" class="px-3 py-1 bg-primary/10 text-primary text-xs rounded-md">
+                        本周
+                    </button>
+                    <button id="mobile-week-next-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors mobile-touch-target">
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <!-- 周视图网格 - 移动端优化为横向滚动 -->
+                <div class="bg-white rounded-xl shadow-card overflow-hidden">
+                    <div class="mobile-scroll-container">
+                        <div class="mobile-week-grid">
+                            <!-- 时间列 -->
+                            <div class="grid grid-cols-8">
+                                <!-- 时间标签 -->
+                                <div class="col-span-1 bg-gray-50 border-r border-gray-200">
+                                    <div class="h-10 flex items-center justify-center border-b border-gray-200 font-medium text-gray-700 text-xs">时间</div>
+                                    <div id="week-hour-labels-container">
+                                        <!-- 小时标签将在这里动态生成 -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 星期列 -->
+                                <div id="week-days-container" class="col-span-7 grid grid-cols-7">
+                                    <!-- 星期列将在这里动态生成 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 月视图 - 移动端优化 -->
+            <div id="month-view" class="view-content p-2 hidden">
+                <div class="calendar-container bg-white rounded-lg overflow-hidden">
+                    <!-- 月份标题 -->
+                    <div class="month-header flex justify-between items-center px-4 py-3 border-b border-gray-200">
+                        <h3 class="text-base font-medium" id="current-month"></h3>
+                        <div class="flex space-x-2">
+                            <button id="month-prev-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors mobile-touch-target">
+                                <i class="fa fa-chevron-left"></i>
+                            </button>
+                            <button id="month-next-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors mobile-touch-target">
+                                <i class="fa fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 星期标题 -->
+                    <div class="calendar-weekdays grid grid-cols-7 bg-gray-50 mobile-week-header">
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-r border-gray-200">日</div>
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-r border-gray-200">一</div>
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-r border-gray-200">二</div>
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-r border-gray-200">三</div>
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-r border-gray-200">四</div>
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-r border-gray-200">五</div>
+                        <div class="text-center py-2 text-xs font-medium text-gray-500 border-b border-gray-200">六</div>
+                    </div>
+                    
+                    <!-- 日期格子 - 移动端优化 -->
+                    <div id="month-days" class="calendar-grid grid-cols-7">
+                        <!-- 日期格子将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部操作栏 - 移动端优化 -->
+    <footer class="mobile-bottom-nav py-3 mobile-safe-area">
+        <div class="container mx-auto px-4 flex justify-center">
+            <button id="add-schedule-btn" class="bg-primary hover:bg-primary/90 text-white rounded-full px-6 py-3 font-medium flex items-center shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm">
+                <i class="fa fa-plus mr-2"></i>
+                <span>添加日程</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- 添加/编辑日程模态框 - 移动端优化 -->
+    <div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center hidden">
+        <div class="bg-white rounded-t-xl shadow-modal w-full max-w-md mx-0 slide-up transform transition-all duration-300 hover:scale-[1.01] mobile-safe-area">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 id="modal-title" class="text-lg font-semibold">添加日程</h2>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700 p-1 mobile-touch-target">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="schedule-form" class="p-4">
+                <input type="hidden" id="schedule-id">
+                
+                <div class="mb-4">
+                    <label for="schedule-title" class="block text-sm font-medium text-gray-700 mb-1">标题</label>
+                    <input type="text" id="schedule-title" class="input-field text-base" required placeholder="请输入日程标题">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="schedule-description" class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                    <textarea id="schedule-description" rows="3" class="input-field text-base" placeholder="请输入日程描述（可选）"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="schedule-start-date" class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                        <input type="date" id="schedule-start-date" class="input-field" required>
+                    </div>
+                    <div>
+                        <label for="schedule-start-time" class="block text-sm font-medium text-gray-700 mb-1">开始时间</label>
+                        <input type="time" id="schedule-start-time" class="input-field" step="60" required>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="schedule-end-date" class="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                        <input type="date" id="schedule-end-date" class="input-field" required>
+                    </div>
+                    <div>
+                        <label for="schedule-end-time" class="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
+                        <input type="time" id="schedule-end-time" class="input-field" step="60" required>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="cancel-btn" class="btn btn-secondary">
+                        取消
+                    </button>
+                    <button type="submit" id="save-btn" class="btn btn-primary">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 日程详情模态框 - 移动端优化 -->
+    <div id="schedule-detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center hidden">
+        <div class="bg-white rounded-t-xl shadow-modal w-full max-w-md mx-0 slide-up transform transition-all duration-300 hover:scale-[1.01] mobile-safe-area">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">日程详情</h2>
+                <button id="close-detail-modal-btn" class="text-gray-500 hover:text-gray-700 p-1 mobile-touch-target">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="schedule-detail-content" class="p-4 max-h-[60vh] overflow-y-auto">
+                <!-- 日程详情将在这里动态生成 -->
+            </div>
+            
+            <div id="schedule-actions" class="p-4 border-t border-gray-200 flex flex-wrap gap-2">
+                <!-- 操作按钮将在这里动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 - 移动端优化 -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center hidden">
+        <div class="bg-white rounded-t-xl shadow-modal w-full max-w-md mx-0 slide-up transform transition-all duration-300 hover:scale-[1.01] mobile-safe-area">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">设置</h2>
+                <button id="close-settings-modal-btn" class="text-gray-500 hover:text-gray-700 p-1 mobile-touch-target">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="p-4">
+                <div class="mb-4">
+                    <label for="default-view" class="block text-sm font-medium text-gray-700 mb-1">默认视图</label>
+                    <select id="default-view" class="input-field text-base">
+                        <option value="day">日视图</option>
+                        <option value="week">周视图</option>
+                        <option value="month">月视图</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4 flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">启用通知提醒</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="notification-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+                
+                <div class="mt-6">
+                    <button id="clear-data-btn" class="w-full px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md hover:bg-red-100 transition-colors">
+                        清除所有数据
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认对话框 - 移动端优化 -->
+    <div id="confirm-dialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-modal w-full max-w-sm mx-4 slide-up transform transition-all duration-300 hover:scale-[1.01]">
+            <div class="p-4">
+                <h3 id="confirm-title" class="text-lg font-semibold mb-2">确认操作</h3>
+                <p id="confirm-message" class="text-gray-600 mb-4">您确定要执行此操作吗？</p>
+                
+                <div class="flex justify-end space-x-3">
+                    <button id="confirm-cancel-btn" class="btn btn-secondary">
+                        取消
+                    </button>
+                    <button id="confirm-ok-btn" class="btn btn-primary">
+                        确认
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知提示 - 移动端优化 -->
+    <div id="notification-toast" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg p-4 max-w-sm w-[90%] flex items-start space-x-3 hidden slide-up z-50">
+        <div id="notification-icon" class="text-primary">
+            <i class="fa fa-bell-o text-xl"></i>
+        </div>
+        <div class="flex-grow">
+            <h4 id="notification-title" class="font-medium">日程提醒</h4>
+            <p id="notification-message" class="text-sm text-gray-600 mt-1">您有一个日程即将开始</p>
+        </div>
+        <button id="close-notification-btn" class="text-gray-400 hover:text-gray-600 p-1 mobile-touch-target">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentDate = new Date();
+        let currentView = 'day'; // 'day', 'week', 'month'
+        let schedules = [];
+        let editingScheduleId = null;
+        let notificationTimeout = null;
+        let notificationCheckInterval = null;
+        
+        // DOM 元素
+        const currentDateEl = document.getElementById('current-date');
+        const todayDateEl = document.getElementById('today-date');
+        const dayViewBtn = document.getElementById('day-view-btn');
+        const weekViewBtn = document.getElementById('week-view-btn');
+        const monthViewBtn = document.getElementById('month-view-btn');
+        const dayView = document.getElementById('day-view');
+        const weekView = document.getElementById('week-view');
+        const monthView = document.getElementById('month-view');
+        const todayBtn = document.getElementById('today-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const addScheduleBtn = document.getElementById('add-schedule-btn');
+        const scheduleModal = document.getElementById('schedule-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const scheduleForm = document.getElementById('schedule-form');
+        const scheduleDetailModal = document.getElementById('schedule-detail-modal');
+        const closeDetailModalBtn = document.getElementById('close-detail-modal-btn');
+        const scheduleDetailContent = document.getElementById('schedule-detail-content');
+        const scheduleActions = document.getElementById('schedule-actions');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsModalBtn = document.getElementById('close-settings-modal-btn');
+        const defaultViewSelect = document.getElementById('default-view');
+        const notificationToggle = document.getElementById('notification-toggle');
+        const clearDataBtn = document.getElementById('clear-data-btn');
+        const confirmDialog = document.getElementById('confirm-dialog');
+        const confirmTitle = document.getElementById('confirm-title');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+        const confirmOkBtn = document.getElementById('confirm-ok-btn');
+        const notificationToast = document.getElementById('notification-toast');
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        const notificationIcon = document.getElementById('notification-icon');
+        const closeNotificationBtn = document.getElementById('close-notification-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const completedCountEl = document.getElementById('completed-count');
+        const totalCountEl = document.getElementById('total-count');
+        const ongoingTasksEl = document.getElementById('ongoing-tasks');
+        
+        // 移动端导航按钮
+        const mobilePrevBtn = document.getElementById('mobile-prev-btn');
+        const mobileNextBtn = document.getElementById('mobile-next-btn');
+        const mobileTodayBtn = document.getElementById('mobile-today-btn');
+        const mobileWeekPrevBtn = document.getElementById('mobile-week-prev-btn');
+        const mobileWeekNextBtn = document.getElementById('mobile-week-next-btn');
+        const mobileWeekTodayBtn = document.getElementById('mobile-week-today-btn');
+        
+        // 初始化应用
+        function initApp() {
+            loadData();
+            setupEventListeners();
+            updateCurrentDate();
+            renderView();
+            checkNotifications();
+            setupNotificationCheck();
+            updateDailyProgress();
+            
+            // 创建一些示例数据（仅在没有数据时）
+            if (schedules.length === 0) {
+                createSampleData();
+            }
+        }
+        
+        // 创建示例数据
+        function createSampleData() {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            const sampleSchedules = [
+                {
+                    id: generateId(),
+                    title: '团队会议',
+                    description: '讨论项目进度和下一步计划',
+                    startTime: new Date(today.getTime() + 9 * 60 * 60 * 1000), // 9:00
+                    endTime: new Date(today.getTime() + 10 * 60 * 60 * 1000), // 10:00
+                    status: 'ongoing',
+                    createdAt: new Date(today.getTime() - 24 * 60 * 60 * 1000),
+                    updatedAt: new Date(today.getTime() - 24 * 60 * 60 * 1000)
+                },
+                {
+                    id: generateId(),
+                    title: '午餐约会',
+                    description: '与客户共进午餐',
+                    startTime: new Date(today.getTime() + 12 * 60 * 60 * 1000), // 12:00
+                    endTime: new Date(today.getTime() + 13.5 * 60 * 60 * 1000), // 13:30
+                    status: 'pending',
+                    createdAt: new Date(today.getTime() - 48 * 60 * 60 * 1000),
+                    updatedAt: new Date(today.getTime() - 48 * 60 * 60 * 1000)
+                },
+                {
+                    id: generateId(),
+                    title: '代码审查',
+                    description: '审查新功能的代码',
+                    startTime: new Date(today.getTime() + 15 * 60 * 60 * 1000), // 15:00
+                    endTime: new Date(today.getTime() + 16 * 60 * 60 * 1000), // 16:00
+                    status: 'pending',
+                    createdAt: new Date(today.getTime() - 12 * 60 * 60 * 1000),
+                    updatedAt: new Date(today.getTime() - 12 * 60 * 60 * 1000)
+                },
+                {
+                    id: generateId(),
+                    title: '晨跑锻炼',
+                    description: '公园慢跑30分钟',
+                    startTime: new Date(today.getTime() + 7 * 60 * 60 * 1000), // 7:00
+                    endTime: new Date(today.getTime() + 7.5 * 60 * 60 * 1000), // 7:30
+                    status: 'completed',
+                    createdAt: new Date(today.getTime() - 72 * 60 * 60 * 1000),
+                    updatedAt: new Date(today.getTime() - 72 * 60 * 60 * 1000)
+                },
+                {
+                    id: generateId(),
+                    title: '项目演示',
+                    description: '向管理层展示项目成果',
+                    startTime: new Date(today.getTime() + 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000), // 明天14:00
+                    endTime: new Date(today.getTime() + 24 * 60 * 60 * 1000 + 15 * 60 * 60 * 1000), // 明天15:00
+                    status: 'pending',
+                    createdAt: new Date(today.getTime() - 96 * 60 * 60 * 1000),
+                    updatedAt: new Date(today.getTime() - 96 * 60 * 60 * 1000)
+                }
+            ];
+            
+            schedules = sampleSchedules;
+            saveData();
+            renderView();
+            updateDailyProgress();
+        }
+        
+        // 从本地存储加载数据
+        function loadData() {
+            try {
+                const storedData = localStorage.getItem('schedule_app_data');
+                if (storedData) {
+                    const parsedData = JSON.parse(storedData);
+                    schedules = parsedData.schedules || [];
+                    
+                    // 将日期字符串转换回Date对象
+                    schedules = schedules.map(schedule => ({
+                        ...schedule,
+                        startTime: new Date(schedule.startTime),
+                        endTime: new Date(schedule.endTime),
+                        createdAt: new Date(schedule.createdAt),
+                        updatedAt: new Date(schedule.updatedAt)
+                    }));
+                    
+                    // 加载设置
+                    if (parsedData.settings) {
+                        currentView = parsedData.settings.defaultView || currentView;
+                        document.getElementById('default-view').value = currentView;
+                        document.getElementById('notification-toggle').checked = parsedData.settings.notificationEnabled || false;
+                    }
+                }
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                schedules = [];
+            }
+        }
+        
+        // 保存数据到本地存储
+        function saveData() {
+            try {
+                const settings = {
+                    defaultView: document.getElementById('default-view').value,
+                    notificationEnabled: document.getElementById('notification-toggle').checked
+                };
+                
+                const dataToStore = {
+                    schedules,
+                    settings
+                };
+                
+                localStorage.setItem('schedule_app_data', JSON.stringify(dataToStore));
+            } catch (error) {
+                console.error('保存数据失败:', error);
+                showNotification('保存数据失败', '数据可能已达到存储限制', 'error');
+            }
+        }
+        
+        // 设置事件监听器 - 移动端优化
+        function setupEventListeners() {
+            // 视图切换按钮
+            dayViewBtn.addEventListener('click', () => switchView('day'));
+            weekViewBtn.addEventListener('click', () => switchView('week'));
+            monthViewBtn.addEventListener('click', () => switchView('month'));
+            
+            // 日期导航按钮
+            todayBtn.addEventListener('click', goToToday);
+            prevBtn.addEventListener('click', goToPrevious);
+            nextBtn.addEventListener('click', goToNext);
+            
+            // 移动端导航按钮
+            mobilePrevBtn.addEventListener('click', goToPrevious);
+            mobileNextBtn.addEventListener('click', goToNext);
+            mobileTodayBtn.addEventListener('click', goToToday);
+            mobileWeekPrevBtn.addEventListener('click', () => {
+                currentDate.setDate(currentDate.getDate() - 7);
+                renderWeekView();
+                updateCurrentDate();
+            });
+            mobileWeekNextBtn.addEventListener('click', () => {
+                currentDate.setDate(currentDate.getDate() + 7);
+                renderWeekView();
+                updateCurrentDate();
+            });
+            mobileWeekTodayBtn.addEventListener('click', () => {
+                currentDate = new Date();
+                renderWeekView();
+                updateCurrentDate();
+            });
+            
+            // 添加日程按钮
+            addScheduleBtn.addEventListener('click', openAddScheduleModal);
+            
+            // 模态框关闭按钮
+            closeModalBtn.addEventListener('click', closeScheduleModal);
+            cancelBtn.addEventListener('click', closeScheduleModal);
+            closeDetailModalBtn.addEventListener('click', closeScheduleDetailModal);
+            closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
+            
+            // 表单提交
+            scheduleForm.addEventListener('submit', handleScheduleFormSubmit);
+            
+            // 设置按钮
+            settingsBtn.addEventListener('click', openSettingsModal);
+            
+            // 清除数据按钮
+            clearDataBtn.addEventListener('click', () => {
+                showConfirmDialog(
+                    '清除所有数据',
+                    '此操作将删除所有日程数据，且无法恢复。确定要继续吗？',
+                    clearAllData
+                );
+            });
+            
+            // 确认对话框按钮
+            confirmCancelBtn.addEventListener('click', closeConfirmDialog);
+            
+            // 通知关闭按钮
+            closeNotificationBtn.addEventListener('click', closeNotification);
+            
+            // 点击模态框外部关闭
+            scheduleModal.addEventListener('click', (e) => {
+                if (e.target === scheduleModal) closeScheduleModal();
+            });
+            
+            scheduleDetailModal.addEventListener('click', (e) => {
+                if (e.target === scheduleDetailModal) closeScheduleDetailModal();
+            });
+            
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) closeSettingsModal();
+            });
+            
+            confirmDialog.addEventListener('click', (e) => {
+                if (e.target === confirmDialog) closeConfirmDialog();
+            });
+            
+            // 月份导航按钮
+            document.getElementById('month-prev-btn').addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderMonthView();
+                updateCurrentDate();
+            });
+            
+            document.getElementById('month-next-btn').addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderMonthView();
+                updateCurrentDate();
+            });
+            
+            // 周视图导航按钮
+            document.getElementById('week-prev-btn').addEventListener('click', () => {
+                currentDate.setDate(currentDate.getDate() - 7);
+                renderWeekView();
+                updateCurrentDate();
+            });
+            
+            document.getElementById('week-next-btn').addEventListener('click', () => {
+                currentDate.setDate(currentDate.getDate() + 7);
+                renderWeekView();
+                updateCurrentDate();
+            });
+            
+            // 触摸事件优化 - 防止双击缩放
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // 键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeScheduleModal();
+                    closeScheduleDetailModal();
+                    closeSettingsModal();
+                    closeConfirmDialog();
+                    closeNotification();
+                }
+            });
+        }
+        
+        // 切换视图
+        function switchView(view) {
+            currentView = view;
+            
+            // 更新按钮样式
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.remove('bg-primary', 'text-white');
+                btn.classList.add('hover:bg-gray-200');
+            });
+            
+            switch (view) {
+                case 'day':
+                    dayViewBtn.classList.add('bg-primary', 'text-white');
+                    dayViewBtn.classList.remove('hover:bg-gray-200');
+                    dayView.classList.remove('hidden');
+                    weekView.classList.add('hidden');
+                    monthView.classList.add('hidden');
+                    break;
+                case 'week':
+                    weekViewBtn.classList.add('bg-primary', 'text-white');
+                    weekViewBtn.classList.remove('hover:bg-gray-200');
+                    dayView.classList.add('hidden');
+                    weekView.classList.remove('hidden');
+                    monthView.classList.add('hidden');
+                    break;
+                case 'month':
+                    monthViewBtn.classList.add('bg-primary', 'text-white');
+                    monthViewBtn.classList.remove('hover:bg-gray-200');
+                    dayView.classList.add('hidden');
+                    weekView.classList.add('hidden');
+                    monthView.classList.remove('hidden');
+                    break;
+            }
+            
+            renderView();
+            saveData(); // 保存默认视图设置
+        }
+        
+        // 更新当前日期显示
+        function updateCurrentDate() {
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            currentDateEl.textContent = currentDate.toLocaleDateString('zh-CN', options);
+            
+            const today = new Date();
+            todayDateEl.textContent = today.toLocaleDateString('zh-CN', options);
+        }
+        
+        // 渲染当前视图
+        function renderView() {
+            switch (currentView) {
+                case 'day':
+                    renderDayView();
+                    break;
+                case 'week':
+                    renderWeekView();
+                    break;
+                case 'month':
+                    renderMonthView();
+                    break;
+            }
+        }
+        
+        // 渲染日视图 - 移动端优化
+        function renderDayView() {
+            const container = document.getElementById('timeline-items');
+            container.innerHTML = '';
+            
+            // 更新日期显示
+            const currentDateDisplay = document.getElementById('current-date-display');
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            currentDateDisplay.textContent = currentDate.toLocaleDateString('zh-CN', options);
+            
+            // 获取当天的日程
+            const startOfDay = new Date(currentDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            const endOfDay = new Date(currentDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            const daySchedules = schedules.filter(schedule => {
+                return schedule.startTime >= startOfDay && schedule.startTime <= endOfDay;
+            });
+            
+            // 按开始时间排序
+            daySchedules.sort((a, b) => a.startTime - b.startTime);
+            
+            // 如果没有日程，显示提示
+            if (daySchedules.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'text-center py-12 text-gray-400';
+                emptyState.innerHTML = `
+                    <i class="fa fa-calendar-o text-4xl mb-3"></i>
+                    <p class="text-base">今天没有安排日程</p>
+                    <p class="text-sm mt-2">点击下方"添加日程"按钮创建新的日程</p>
+                `;
+                container.appendChild(emptyState);
+                return;
+            }
+            
+            // 移动端优化：使用简单的列表视图
+            daySchedules.forEach(schedule => {
+                const scheduleItem = document.createElement('div');
+                scheduleItem.className = `mobile-day-card bg-white border-l-4 ${getStatusColorClass(schedule.status)}`;
+                scheduleItem.dataset.id = schedule.id;
+                
+                // 时间和标题
+                const timeTitleRow = document.createElement('div');
+                timeTitleRow.className = 'flex justify-between items-start mb-1';
+                
+                const timeEl = document.createElement('div');
+                timeEl.className = 'text-xs font-medium text-gray-500';
+                const startTime = schedule.startTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const endTime = schedule.endTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                timeEl.textContent = `${startTime} - ${endTime}`;
+                
+                const statusBadge = document.createElement('span');
+                statusBadge.className = `text-xs px-2 py-0.5 rounded-full text-white ${getStatusColorClass(schedule.status)}`;
+                statusBadge.textContent = getStatusText(schedule.status);
+                
+                timeTitleRow.appendChild(timeEl);
+                timeTitleRow.appendChild(statusBadge);
+                
+                // 标题
+                const titleEl = document.createElement('div');
+                titleEl.className = 'text-base font-semibold text-gray-800 mb-1';
+                titleEl.textContent = schedule.title;
+                
+                // 描述（如果有）
+                let descEl = null;
+                if (schedule.description) {
+                    descEl = document.createElement('div');
+                    descEl.className = 'text-sm text-gray-600';
+                    descEl.textContent = schedule.description;
+                }
+                
+                // 组装日程项
+                scheduleItem.appendChild(timeTitleRow);
+                scheduleItem.appendChild(titleEl);
+                if (descEl) {
+                    scheduleItem.appendChild(descEl);
+                }
+                
+                // 添加点击事件
+                scheduleItem.addEventListener('click', () => openScheduleDetailModal(schedule.id));
+                
+                container.appendChild(scheduleItem);
+            });
+        }
+        
+        // 渲染周视图 - 移动端优化
+        function renderWeekView() {
+            const weekDateRange = document.getElementById('week-date-range');
+            const weekHourLabelsContainer = document.getElementById('week-hour-labels-container');
+            const weekDaysContainer = document.getElementById('week-days-container');
+            
+            // 清空容器
+            weekHourLabelsContainer.innerHTML = '';
+            weekDaysContainer.innerHTML = '';
+            
+            // 获取当前周的第一天（周日）
+            const startOfWeek = new Date(currentDate);
+            const dayOfWeek = startOfWeek.getDay(); // 0-6, 0是周日
+            startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
+            startOfWeek.setHours(0, 0, 0, 0);
+            
+            // 获取当前周的最后一天（周六）
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            
+            // 更新周日期范围显示
+            const options = { month: 'numeric', day: 'numeric' };
+            weekDateRange.textContent = `${startOfWeek.toLocaleDateString('zh-CN', options)} - ${endOfWeek.toLocaleDateString('zh-CN', options)}`;
+            
+            // 获取当前周的日程
+            const weekEnd = new Date(startOfWeek);
+            weekEnd.setDate(startOfWeek.getDate() + 7);
+            weekEnd.setHours(0, 0, 0, 0);
+            
+            const weekSchedules = schedules.filter(schedule => {
+                return schedule.startTime >= startOfWeek && schedule.startTime < weekEnd;
+            });
+            
+            // 计算动态时间范围
+            let minHour = 8; // 默认从8点开始
+            let maxHour = 20; // 默认到20点结束
+            
+            // 如果有日程，根据日程时间调整范围
+            if (weekSchedules.length > 0) {
+                weekSchedules.forEach(schedule => {
+                    const startHour = schedule.startTime.getHours();
+                    const endHour = schedule.endTime.getHours();
+                    minHour = Math.min(minHour, startHour);
+                    maxHour = Math.max(maxHour, endHour);
+                });
+                
+                // 确保时间范围合理
+                minHour = Math.max(0, minHour - 1); // 提前1小时
+                maxHour = Math.min(23, maxHour + 1); // 延后1小时
+            }
+            
+            // 创建星期列
+            const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            const today = new Date();
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(startOfWeek);
+                date.setDate(startOfWeek.getDate() + i);
+                
+                // 创建星期列
+                const dayColumn = document.createElement('div');
+                dayColumn.className = `border-r border-gray-200 ${date.toDateString() === today.toDateString() ? 'bg-blue-50/30' : ''}`;
+                
+                // 创建星期标题
+                const dayHeader = document.createElement('div');
+                dayHeader.className = `h-10 flex items-center justify-center border-b border-gray-200 font-medium ${date.toDateString() === today.toDateString() ? 'text-primary bg-blue-100' : 'text-gray-700'}`;
+                dayHeader.textContent = `${weekdays[i]} ${date.getDate()}日`;
+                dayColumn.appendChild(dayHeader);
+                
+                // 创建时间段
+                const timeSlotsContainer = document.createElement('div');
+                timeSlotsContainer.className = 'relative';
+                
+                // 创建时间段格子（动态范围）
+                for (let j = minHour; j <= maxHour; j++) {
+                    const timeSlot = document.createElement('div');
+                    timeSlot.className = 'h-16 border-b border-gray-200 relative';
+                    timeSlot.dataset.day = i;
+                    timeSlot.dataset.hour = j;
+                    timeSlotsContainer.appendChild(timeSlot);
+                }
+                
+                dayColumn.appendChild(timeSlotsContainer);
+                weekDaysContainer.appendChild(dayColumn);
+            }
+            
+            // 创建小时标签（动态范围）
+            for (let i = minHour; i <= maxHour; i++) {
+                const hourLabel = document.createElement('div');
+                hourLabel.className = 'h-16 flex items-center justify-center border-b border-gray-200 text-xs text-gray-600';
+                hourLabel.textContent = `${i.toString().padStart(2, '0')}:00`;
+                weekHourLabelsContainer.appendChild(hourLabel);
+            }
+            
+            // 渲染日程
+            weekSchedules.forEach(schedule => {
+                renderScheduleInWeekView(schedule, startOfWeek, minHour);
+            });
+        }
+        
+        // 在周视图中渲染单个日程 - 移动端优化
+        function renderScheduleInWeekView(schedule, startOfWeek, minHour) {
+            const dayOfWeek = Math.floor((schedule.startTime - startOfWeek) / (1000 * 60 * 60 * 24));
+            
+            if (dayOfWeek < 0 || dayOfWeek > 6) return; // 不在当前周内
+            
+            const startHour = schedule.startTime.getHours();
+            const startMinute = schedule.startTime.getMinutes();
+            const endHour = schedule.endTime.getHours();
+            const endMinute = schedule.endTime.getMinutes();
+            
+            // 显示0点到24点之间的所有日程
+            if (startHour < 0 || startHour >= 24) return;
+            
+            // 计算日程高度（以分钟为单位）
+            const duration = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+            const height = Math.max(duration * (16 / 60) * 4, 20); // 最小高度20px，每分钟0.267px
+            
+            // 计算日程位置（基于最小小时）
+            const top = (startHour - minHour) * 64 + startMinute * (64 / 60); // 64px是每个小时的高度
+            
+            // 获取对应的时间段格子
+            const dayColumn = document.querySelectorAll('#week-days-container > div')[dayOfWeek];
+            if (!dayColumn) return;
+            
+            const timeSlot = dayColumn.querySelector(`[data-hour="${startHour}"]`);
+            if (!timeSlot) return;
+            
+            // 创建日程元素
+            const scheduleEl = document.createElement('div');
+            scheduleEl.className = `schedule-card absolute left-1 right-1 mx-0.5 rounded-md shadow-md p-1 cursor-pointer overflow-hidden ${getStatusColorClass(schedule.status)} z-10`;
+            scheduleEl.style.top = `${top}px`;
+            scheduleEl.style.height = `${height}px`;
+            scheduleEl.dataset.id = schedule.id;
+            scheduleEl.style.pointerEvents = 'auto';
+            
+            // 日程内容
+            const scheduleTitle = document.createElement('div');
+            scheduleTitle.className = 'text-xs font-medium text-white truncate';
+            scheduleTitle.textContent = schedule.title;
+            
+            const scheduleTime = document.createElement('div');
+            scheduleTime.className = 'text-[10px] text-white opacity-80';
+            scheduleTime.textContent = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+            
+            scheduleEl.appendChild(scheduleTitle);
+            scheduleEl.appendChild(scheduleTime);
+            
+            // 添加点击事件
+            scheduleEl.addEventListener('click', () => openScheduleDetailModal(schedule.id));
+            
+            // 将日程添加到对应的时间段格子
+            timeSlot.appendChild(scheduleEl);
+        }
+        
+        // 渲染月视图 - 移动端优化
+        function renderMonthView() {
+            const container = document.getElementById('month-days');
+            container.innerHTML = '';
+            
+            // 更新月份标题
+            const monthHeader = document.getElementById('current-month');
+            const options = { year: 'numeric', month: 'long' };
+            monthHeader.textContent = currentDate.toLocaleDateString('zh-CN', options);
+            
+            // 获取当前月的第一天
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            
+            // 获取当前月的最后一天
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            
+            // 获取当前月第一天是星期几（0-6，0是周日）
+            const firstDayOfWeek = firstDay.getDay();
+            
+            // 获取当前月的天数
+            const daysInMonth = lastDay.getDate();
+            
+            // 获取上个月的最后几天
+            const prevMonthLastDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0).getDate();
+            
+            // 创建日历格子
+            let dayCount = 1;
+            let nextMonthDayCount = 1;
+            
+            // 添加上个月的日期
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const dayCell = createMonthDayCell(
+                    prevMonthLastDay - firstDayOfWeek + i + 1,
+                    true,
+                    null,
+                    firstDay,
+                    -1
+                );
+                container.appendChild(dayCell);
+            }
+            
+            // 添加当前月的日期
+            for (let i = 0; i < daysInMonth; i++) {
+                const date = new Date(firstDay.getFullYear(), firstDay.getMonth(), dayCount);
+                const isToday = isSameDay(date, new Date());
+                
+                // 获取当天的日程
+                const daySchedules = schedules.filter(schedule => isSameDay(schedule.startTime, date));
+                
+                const dayCell = createMonthDayCell(dayCount, false, daySchedules, firstDay, 0, isToday);
+                container.appendChild(dayCell);
+                dayCount++;
+            }
+            
+            // 添加下个月的日期
+            const totalCells = 42; // 6行7列
+            const remainingCells = totalCells - (firstDayOfWeek + daysInMonth);
+            
+            for (let i = 0; i < remainingCells; i++) {
+                const dayCell = createMonthDayCell(nextMonthDayCount, true, null, firstDay, 1);
+                container.appendChild(dayCell);
+                nextMonthDayCount++;
+            }
+        }
+        
+        // 创建月视图中的日期格子 - 移动端优化
+        function createMonthDayCell(dayNumber, isOtherMonth, daySchedules, baseDate, monthOffset, isToday = false) {
+            const dayCell = document.createElement('div');
+            dayCell.className = `bg-white border-b border-r border-gray-200 p-2 h-24 overflow-hidden relative ${isOtherMonth ? 'text-gray-300' : ''}`;
+            
+            // 日期数字
+            const dayNumberEl = document.createElement('div');
+            dayNumberEl.className = `text-sm font-medium mb-1 flex justify-between items-center`;
+            
+            const dayNumSpan = document.createElement('span');
+            dayNumSpan.className = `${isToday ? 'bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center' : ''}`;
+            dayNumSpan.textContent = dayNumber;
+            dayNumberEl.appendChild(dayNumSpan);
+            
+            // 如果是今天，添加标记
+            if (isToday) {
+                const todayBadge = document.createElement('span');
+                todayBadge.className = 'text-xs text-primary font-medium';
+                todayBadge.textContent = '今天';
+                dayNumberEl.appendChild(todayBadge);
+            }
+            
+            dayCell.appendChild(dayNumberEl);
+            
+            // 如果有日程，添加日程列表
+            if (daySchedules && daySchedules.length > 0) {
+                const scheduleList = document.createElement('div');
+                scheduleList.className = 'space-y-1 overflow-hidden';
+                
+                // 最多显示2个日程（移动端优化）
+                const schedulesToShow = daySchedules.slice(0, 2);
+                
+                schedulesToShow.forEach(schedule => {
+                    const scheduleEl = document.createElement('div');
+                    scheduleEl.className = `text-xs rounded px-2 py-0.5 ${getStatusColorClass(schedule.status)} text-white truncate cursor-pointer`;
+                    scheduleEl.textContent = schedule.title;
+                    scheduleEl.dataset.id = schedule.id;
+                    scheduleEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openScheduleDetailModal(schedule.id);
+                    });
+                    scheduleList.appendChild(scheduleEl);
+                });
+                
+                // 如果有更多日程，显示省略号
+                if (daySchedules.length > 2) {
+                    const moreEl = document.createElement('div');
+                    moreEl.className = 'text-xs text-gray-500 mt-1';
+                    moreEl.textContent = `还有 ${daySchedules.length - 2} 个...`;
+                    scheduleList.appendChild(moreEl);
+                }
+                
+                dayCell.appendChild(scheduleList);
+            }
+            
+            // 添加点击事件，显示当天所有日程
+            dayCell.addEventListener('click', () => {
+                // 计算实际日期
+                const year = baseDate.getFullYear();
+                const month = baseDate.getMonth() + monthOffset;
+                const date = new Date(year, month, dayNumber);
+                
+                currentDate = date;
+                switchView('day');
+                updateCurrentDate();
+            });
+            
+            return dayCell;
+        }
+        
+        // 打开添加日程模态框
+        function openAddScheduleModal() {
+            editingScheduleId = null;
+            document.getElementById('modal-title').textContent = '添加日程';
+            
+            // 重置表单
+            scheduleForm.reset();
+            
+            // 设置默认日期和时间
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            // 只保留小时和分钟，去掉秒
+            const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+            
+            document.getElementById('schedule-start-date').value = dateStr;
+            document.getElementById('schedule-start-time').value = timeStr;
+            
+            // 设置结束时间为开始时间后1小时
+            const endTime = new Date(now.getTime() + 60 * 60 * 1000);
+            document.getElementById('schedule-end-date').value = dateStr;
+            document.getElementById('schedule-end-time').value = endTime.toTimeString().split(' ')[0].substring(0, 5);
+            
+            // 显示模态框
+            scheduleModal.classList.remove('hidden');
+            
+            // 自动聚焦到标题输入框
+            setTimeout(() => {
+                document.getElementById('schedule-title').focus();
+            }, 100);
+        }
+        
+        // 打开编辑日程模态框
+        function openEditScheduleModal(scheduleId) {
+            const schedule = schedules.find(s => s.id === scheduleId);
+            if (!schedule) return;
+            
+            editingScheduleId = scheduleId;
+            document.getElementById('modal-title').textContent = '编辑日程';
+            
+            // 填充表单数据
+            document.getElementById('schedule-id').value = schedule.id;
+            document.getElementById('schedule-title').value = schedule.title;
+            document.getElementById('schedule-description').value = schedule.description || '';
+            
+            const startDateStr = schedule.startTime.toISOString().split('T')[0];
+            // 只保留小时和分钟，去掉秒
+            const startTimeStr = schedule.startTime.toTimeString().split(' ')[0].substring(0, 5);
+            const endDateStr = schedule.endTime.toISOString().split('T')[0];
+            // 只保留小时和分钟，去掉秒
+            const endTimeStr = schedule.endTime.toTimeString().split(' ')[0].substring(0, 5);
+            
+            document.getElementById('schedule-start-date').value = startDateStr;
+            document.getElementById('schedule-start-time').value = startTimeStr;
+            document.getElementById('schedule-end-date').value = endDateStr;
+            document.getElementById('schedule-end-time').value = endTimeStr;
+            
+            // 显示模态框
+            scheduleModal.classList.remove('hidden');
+            
+            // 自动聚焦到标题输入框
+            setTimeout(() => {
+                document.getElementById('schedule-title').focus();
+            }, 100);
+        }
+        
+        // 关闭日程模态框
+        function closeScheduleModal() {
+            scheduleModal.classList.add('hidden');
+            editingScheduleId = null;
+        }
+        
+        // 处理日程表单提交
+        function handleScheduleFormSubmit(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('schedule-title').value.trim();
+            const description = document.getElementById('schedule-description').value.trim();
+            const startDate = document.getElementById('schedule-start-date').value;
+            const startTime = document.getElementById('schedule-start-time').value;
+            const endDate = document.getElementById('schedule-end-date').value;
+            const endTime = document.getElementById('schedule-end-time').value;
+            
+            // 验证表单
+            if (!title) {
+                showNotification('表单错误', '请输入日程标题', 'error');
+                return;
+            }
+            
+            const startDateTime = new Date(`${startDate}T${startTime}`);
+            const endDateTime = new Date(`${endDate}T${endTime}`);
+            
+            if (endDateTime <= startDateTime) {
+                showNotification('表单错误', '结束时间必须晚于开始时间', 'error');
+                return;
+            }
+            
+            // 创建或更新日程
+            if (editingScheduleId) {
+                // 更新现有日程
+                const index = schedules.findIndex(s => s.id === editingScheduleId);
+                if (index !== -1) {
+                    schedules[index] = {
+                        ...schedules[index],
+                        title,
+                        description,
+                        startTime: startDateTime,
+                        endTime: endDateTime,
+                        updatedAt: new Date()
+                    };
+                    showNotification('成功', '日程已更新', 'success');
+                }
+            } else {
+                // 创建新日程
+                const newSchedule = {
+                    id: generateId(),
+                    title,
+                    description,
+                    startTime: startDateTime,
+                    endTime: endDateTime,
+                    status: 'pending',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+                schedules.push(newSchedule);
+                showNotification('成功', '日程已创建', 'success');
+            }
+            
+            // 保存数据并更新视图
+            saveData();
+            renderView();
+            updateDailyProgress();
+            
+            // 关闭模态框
+            closeScheduleModal();
+        }
+        
+        // 打开日程详情模态框
+        function openScheduleDetailModal(scheduleId) {
+            const schedule = schedules.find(s => s.id === scheduleId);
+            if (!schedule) return;
+            
+            // 填充日程详情
+            scheduleDetailContent.innerHTML = `
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-1">${schedule.title}</h3>
+                    <div class="inline-block px-2 py-0.5 rounded text-xs font-medium ${getStatusColorClass(schedule.status)} text-white">
+                        ${getStatusText(schedule.status)}
+                    </div>
+                </div>
+                
+                <div class="space-y-3 text-sm">
+                    <div class="flex">
+                        <span class="text-gray-500 w-20">开始时间:</span>
+                        <span>${formatDateTime(schedule.startTime)}</span>
+                    </div>
+                    
+                    <div class="flex">
+                        <span class="text-gray-500 w-20">结束时间:</span>
+                        <span>${formatDateTime(schedule.endTime)}</span>
+                    </div>
+                    
+                    ${schedule.description ? `
+                    <div class="flex">
+                        <span class="text-gray-500 w-20">描述:</span>
+                        <span>${schedule.description}</span>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="flex">
+                        <span class="text-gray-500 w-20">创建时间:</span>
+                        <span>${formatDateTime(schedule.createdAt)}</span>
+                    </div>
+                    
+                    ${schedule.updatedAt.getTime() !== schedule.createdAt.getTime() ? `
+                    <div class="flex">
+                        <span class="text-gray-500 w-20">更新时间:</span>
+                        <span>${formatDateTime(schedule.updatedAt)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // 生成操作按钮
+            scheduleActions.innerHTML = '';
+            
+            // 根据日程状态生成不同的操作按钮
+            switch (schedule.status) {
+                case 'pending':
+                    addActionButton('开始', 'primary', () => changeScheduleStatus(schedule.id, 'ongoing'));
+                    addActionButton('改期', 'warning', () => {
+                        closeScheduleDetailModal();
+                        openEditScheduleModal(schedule.id);
+                    });
+                    addActionButton('作废', 'danger', () => changeScheduleStatus(schedule.id, 'cancelled'));
+                    break;
+                case 'ongoing':
+                    addActionButton('完成', 'success', () => changeScheduleStatus(schedule.id, 'completed'));
+                    addActionButton('改期', 'warning', () => {
+                        closeScheduleDetailModal();
+                        openEditScheduleModal(schedule.id);
+                    });
+                    addActionButton('作废', 'danger', () => changeScheduleStatus(schedule.id, 'cancelled'));
+                    break;
+                case 'completed':
+                    addActionButton('重新开始', 'primary', () => changeScheduleStatus(schedule.id, 'ongoing'));
+                    addActionButton('改期', 'warning', () => {
+                        closeScheduleDetailModal();
+                        openEditScheduleModal(schedule.id);
+                    });
+                    addActionButton('作废', 'danger', () => changeScheduleStatus(schedule.id, 'cancelled'));
+                    break;
+                case 'rescheduled':
+                    addActionButton('开始', 'primary', () => changeScheduleStatus(schedule.id, 'ongoing'));
+                    addActionButton('编辑', 'info', () => {
+                        closeScheduleDetailModal();
+                        openEditScheduleModal(schedule.id);
+                    });
+                    addActionButton('作废', 'danger', () => changeScheduleStatus(schedule.id, 'cancelled'));
+                    break;
+                case 'cancelled':
+                    addActionButton('恢复', 'primary', () => changeScheduleStatus(schedule.id, 'pending'));
+                    addActionButton('编辑', 'info', () => {
+                        closeScheduleDetailModal();
+                        openEditScheduleModal(schedule.id);
+                    });
+                    break;
+            }
+            
+            // 添加编辑和删除按钮
+            addActionButton('编辑', 'info', () => openEditScheduleModal(schedule.id));
+            addActionButton('删除', 'danger', () => {
+                showConfirmDialog(
+                    '删除日程',
+                    '确定要删除这个日程吗？此操作无法恢复。',
+                    () => deleteSchedule(schedule.id)
+                );
+            });
+            
+            // 显示模态框
+            scheduleDetailModal.classList.remove('hidden');
+        }
+        
+        // 添加操作按钮 - 移动端优化
+        function addActionButton(text, color, onClick) {
+            const button = document.createElement('button');
+            button.className = `px-3 py-2 text-sm rounded-md text-white bg-${color} hover:bg-${color}/90 transition-colors flex-1`;
+            button.textContent = text;
+            button.addEventListener('click', onClick);
+            scheduleActions.appendChild(button);
+        }
+        
+        // 关闭日程详情模态框
+        function closeScheduleDetailModal() {
+            scheduleDetailModal.classList.add('hidden');
+        }
+        
+        // 更改日程状态
+        function changeScheduleStatus(scheduleId, newStatus) {
+            const index = schedules.findIndex(s => s.id === scheduleId);
+            if (index !== -1) {
+                schedules[index] = {
+                    ...schedules[index],
+                    status: newStatus,
+                    updatedAt: new Date()
+                };
+                
+                saveData();
+                renderView();
+                updateDailyProgress();
+                
+                showNotification('成功', `日程已${getStatusText(newStatus)}`, 'success');
+                closeScheduleDetailModal();
+            }
+        }
+        
+        // 删除日程
+        function deleteSchedule(scheduleId) {
+            const index = schedules.findIndex(s => s.id === scheduleId);
+            if (index !== -1) {
+                schedules.splice(index, 1);
+                
+                saveData();
+                renderView();
+                updateDailyProgress();
+                
+                showNotification('成功', '日程已删除', 'success');
+                closeScheduleDetailModal();
+            }
+        }
+        
+        // 打开设置模态框
+        function openSettingsModal() {
+            settingsModal.classList.remove('hidden');
+        }
+        
+        // 关闭设置模态框
+        function closeSettingsModal() {
+            settingsModal.classList.add('hidden');
+            
+            // 保存设置
+            saveData();
+            
+            // 如果默认视图改变，切换视图
+            const newDefaultView = document.getElementById('default-view').value;
+            if (newDefaultView !== currentView) {
+                switchView(newDefaultView);
+            }
+            
+            // 如果通知设置改变，重新设置通知检查
+            if (document.getElementById('notification-toggle').checked) {
+                setupNotificationCheck();
+            } else {
+                clearInterval(notificationCheckInterval);
+            }
+        }
+        
+        // 显示确认对话框
+        function showConfirmDialog(title, message, onConfirm) {
+            confirmTitle.textContent = title;
+            confirmMessage.textContent = message;
+            
+            // 移除之前的事件监听器
+            const newConfirmOkBtn = confirmOkBtn.cloneNode(true);
+            confirmOkBtn.parentNode.replaceChild(newConfirmOkBtn, confirmOkBtn);
+            
+            // 添加新的事件监听器
+            newConfirmOkBtn.addEventListener('click', () => {
+                onConfirm();
+                closeConfirmDialog();
+            });
+            
+            confirmDialog.classList.remove('hidden');
+        }
+        
+        // 关闭确认对话框
+        function closeConfirmDialog() {
+            confirmDialog.classList.add('hidden');
+        }
+        
+        // 清除所有数据
+        function clearAllData() {
+            schedules = [];
+            saveData();
+            renderView();
+            updateDailyProgress();
+            showNotification('成功', '所有数据已清除', 'success');
+            closeSettingsModal();
+        }
+        
+        // 显示通知 - 移动端优化
+        function showNotification(title, message, type = 'info') {
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            // 设置图标和颜色
+            switch (type) {
+                case 'success':
+                    notificationIcon.innerHTML = '<i class="fa fa-check-circle text-xl"></i>';
+                    notificationIcon.className = 'text-success';
+                    break;
+                case 'error':
+                    notificationIcon.innerHTML = '<i class="fa fa-exclamation-circle text-xl"></i>';
+                    notificationIcon.className = 'text-danger';
+                    break;
+                case 'warning':
+                    notificationIcon.innerHTML = '<i class="fa fa-exclamation-triangle text-xl"></i>';
+                    notificationIcon.className = 'text-warning';
+                    break;
+                default:
+                    notificationIcon.innerHTML = '<i class="fa fa-info-circle text-xl"></i>';
+                    notificationIcon.className = 'text-info';
+            }
+            
+            // 显示通知
+            notificationToast.classList.remove('hidden');
+            
+            // 清除之前的定时器
+            if (notificationTimeout) {
+                clearTimeout(notificationTimeout);
+            }
+            
+            // 设置自动关闭定时器
+            notificationTimeout = setTimeout(() => {
+                closeNotification();
+            }, 5000);
+        }
+        
+        // 关闭通知
+        function closeNotification() {
+            notificationToast.classList.add('hidden');
+            if (notificationTimeout) {
+                clearTimeout(notificationTimeout);
+                notificationTimeout = null;
+            }
+        }
+        
+        // 更新当日进度 - 移动端优化
+        function updateDailyProgress() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            // 获取今天的所有日程
+            const todaySchedules = schedules.filter(schedule => {
+                return schedule.startTime >= today && schedule.startTime < tomorrow;
+            });
+            
+            // 计算完成的日程数量
+            const completedSchedules = todaySchedules.filter(schedule => schedule.status === 'completed');
+            
+            // 更新进度条
+            const totalCount = todaySchedules.length;
+            const completedCount = completedSchedules.length;
+            const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+            
+            progressBar.style.width = `${progressPercentage}%`;
+            completedCountEl.textContent = `${completedCount} 已完成`;
+            totalCountEl.textContent = `共 ${totalCount} 项`;
+            
+            // 更新进行中的任务列表
+            const ongoingSchedules = todaySchedules.filter(schedule => schedule.status === 'ongoing');
+            
+            ongoingTasksEl.innerHTML = '';
+            
+            if (ongoingSchedules.length > 0) {
+                ongoingSchedules.forEach(schedule => {
+                    const taskEl = document.createElement('div');
+                    taskEl.className = 'bg-ongoing/10 border border-ongoing/20 rounded-md p-2 flex items-center justify-between mobile-schedule-item';
+                    
+                    const taskInfo = document.createElement('div');
+                    taskInfo.className = 'flex-grow';
+                    
+                    const taskTitle = document.createElement('div');
+                    taskTitle.className = 'font-medium text-sm';
+                    taskTitle.textContent = schedule.title;
+                    
+                    const taskTime = document.createElement('div');
+                    taskTime.className = 'text-xs text-gray-500';
+                    taskTime.textContent = `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`;
+                    
+                    taskInfo.appendChild(taskTitle);
+                    taskInfo.appendChild(taskTime);
+                    
+                    const completeBtn = document.createElement('button');
+                    completeBtn.className = 'ml-2 px-2 py-1 bg-success text-white text-xs rounded hover:bg-success/90 transition-colors';
+                    completeBtn.textContent = '完成';
+                    completeBtn.addEventListener('click', () => changeScheduleStatus(schedule.id, 'completed'));
+                    
+                    taskEl.appendChild(taskInfo);
+                    taskEl.appendChild(completeBtn);
+                    ongoingTasksEl.appendChild(taskEl);
+                });
+            } else {
+                ongoingTasksEl.innerHTML = '<div class="text-sm text-gray-400 italic">暂无进行中的任务</div>';
+            }
+        }
+        
+        // 设置通知检查
+        function setupNotificationCheck() {
+            // 清除之前的定时器
+            if (notificationCheckInterval) {
+                clearInterval(notificationCheckInterval);
+            }
+            
+            // 检查通知权限
+            if ('Notification' in window && document.getElementById('notification-toggle').checked) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        // 设置每分钟检查一次
+                        notificationCheckInterval = setInterval(checkNotifications, 60000);
+                    }
+                });
+            }
+        }
+        
+        // 检查通知
+        function checkNotifications() {
+            if (!document.getElementById('notification-toggle').checked) return;
+            
+            const now = new Date();
+            const fifteenMinutesLater = new Date(now.getTime() + 15 * 60 * 1000);
+            
+            // 查找15分钟内要开始且未开始的日程
+            const upcomingSchedules = schedules.filter(schedule => {
+                return schedule.startTime > now && 
+                       schedule.startTime <= fifteenMinutesLater && 
+                       schedule.status === 'pending';
+            });
+            
+            // 显示通知
+            upcomingSchedules.forEach(schedule => {
+                // 浏览器通知
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('日程提醒', {
+                        body: `${schedule.title} 将在 ${Math.round((schedule.startTime - now) / 60000)} 分钟后开始`,
+                        icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233b82f6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>'
+                    });
+                }
+                
+                // 应用内通知
+                showNotification(
+                    '日程提醒',
+                    `${schedule.title} 将在 ${Math.round((schedule.startTime - now) / 60000)} 分钟后开始`,
+                    'warning'
+                );
+            });
+        }
+        
+        // 导航到今天
+        function goToToday() {
+            currentDate = new Date();
+            updateCurrentDate();
+            renderView();
+        }
+        
+        // 导航到上一个时间单位
+        function goToPrevious() {
+            switch (currentView) {
+                case 'day':
+                    currentDate.setDate(currentDate.getDate() - 1);
+                    break;
+                case 'week':
+                    currentDate.setDate(currentDate.getDate() - 7);
+                    break;
+                case 'month':
+                    currentDate.setMonth(currentDate.getMonth() - 1);
+                    break;
+            }
+            updateCurrentDate();
+            renderView();
+        }
+        
+        // 导航到下一个时间单位
+        function goToNext() {
+            switch (currentView) {
+                case 'day':
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    break;
+                case 'week':
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    break;
+                case 'month':
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                    break;
+            }
+            updateCurrentDate();
+            renderView();
+        }
+        
+        // 辅助函数
+        
+        // 生成唯一ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        
+        // 格式化日期时间
+        function formatDateTime(date) {
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // 格式化时间
+        function formatTime(date) {
+            return date.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // 判断两个日期是否是同一天
+        function isSameDay(date1, date2) {
+            return date1.getFullYear() === date2.getFullYear() &&
+                   date1.getMonth() === date2.getMonth() &&
+                   date1.getDate() === date2.getDate();
+        }
+        
+        // 获取状态对应的颜色类
+        function getStatusColorClass(status) {
+            switch (status) {
+                case 'pending':
+                    return 'bg-pending';
+                case 'ongoing':
+                    return 'bg-ongoing';
+                case 'completed':
+                    return 'bg-completed';
+                case 'rescheduled':
+                    return 'bg-rescheduled';
+                case 'cancelled':
+                    return 'bg-cancelled';
+                default:
+                    return 'bg-gray-500';
+            }
+        }
+        
+        // 获取状态文本
+        function getStatusText(status) {
+            switch (status) {
+                case 'pending':
+                    return '待开始';
+                case 'ongoing':
+                    return '进行中';
+                case 'completed':
+                    return '已完成';
+                case 'rescheduled':
+                    return '已改期';
+                case 'cancelled':
+                    return '已作废';
+                default:
+                    return '未知';
+            }
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
