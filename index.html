@@ -1108,8 +1108,9 @@
             const dayColumn = document.querySelectorAll('#week-days-container > div')[dayOfWeek];
             if (!dayColumn) return;
             
-            const timeSlot = dayColumn.querySelector(`[data-hour="${startHour}"]`);
-            if (!timeSlot) return;
+            // 获取时间段容器
+            const timeSlotsContainer = dayColumn.querySelector('div[class="relative"]');
+            if (!timeSlotsContainer) return;
             
             // 创建日程元素
             const scheduleEl = document.createElement('div');
@@ -1134,8 +1135,8 @@
             // 添加点击事件
             scheduleEl.addEventListener('click', () => openScheduleDetailModal(schedule.id));
             
-            // 将日程添加到对应的时间段格子
-            timeSlot.appendChild(scheduleEl);
+            // 将日程添加到时间段容器
+            timeSlotsContainer.appendChild(scheduleEl);
         }
         
         // 渲染月视图 - 移动端优化
