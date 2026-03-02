@@ -693,6 +693,10 @@
                         document.getElementById('default-view').value = currentView;
                         document.getElementById('notification-toggle').checked = parsedData.settings.notificationEnabled || false;
                     }
+                    
+                    // 数据加载完成后立即更新界面
+                    renderView();
+                    updateDailyProgress();
                 }
             } catch (error) {
                 console.error('加载数据失败:', error);
