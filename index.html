@@ -155,6 +155,16 @@
             .mobile-day-card {
                 @apply p-3 mb-3 rounded-lg shadow-sm border-l-4 cursor-pointer transition-all duration-200;
             }
+            .mobile-day-card::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 1px;
+                background-color: transparent;
+                z-index: 1;
+            }
             .mobile-day-card:active {
                 @apply opacity-90 transform scale-[0.98];
             }
@@ -936,7 +946,7 @@
             // 移动端优化：使用简单的列表视图
             daySchedules.forEach(schedule => {
                 const scheduleItem = document.createElement('div');
-                scheduleItem.className = `mobile-day-card bg-white border-l-4 ${getStatusColorClass(schedule.status)}`;
+                scheduleItem.className = `mobile-day-card bg-white border-l-4 ${getStatusColorClass(schedule.status)} relative overflow-hidden`;
                 scheduleItem.dataset.id = schedule.id;
                 
                 // 时间和标题
